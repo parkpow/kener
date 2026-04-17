@@ -1,0 +1,11 @@
+status.parkpow.com {
+        reverse_proxy localhost:3000
+}
+
+status.platerecognizer.com {
+        redir * https://status.parkpow.com permanent
+}
+
+monitor.parkpow.com {
+        reverse_proxy localhost:3001
+}
