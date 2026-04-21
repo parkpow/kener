@@ -27,6 +27,7 @@ export interface SiteDataForNotification {
   colors_down: string;
   colors_degraded: string;
   colors_maintenance: string;
+  date_format: string;
 }
 export interface SubscriptionVariableMap {
   title: string;

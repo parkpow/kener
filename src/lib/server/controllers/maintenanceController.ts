@@ -120,6 +120,7 @@ export const CreateMaintenanceEventWithNotification = async (
     if (notificationSettings.event_types.created) {
       const siteVars = siteDataToVariables(siteData);
       const siteUrl = siteVars.site_url;
+      const { date_format: dateFormat } = siteVars;
       const monitors = await db.getMonitorsByMaintenanceId(maintenance_id);
       const monitorNames = monitors.map((m) => `${m.monitor_name}(${m.monitor_impact})`).join(", ");
       const eventDetailed: MaintenanceEventRecordDetailed = {
@@ -140,6 +141,7 @@ export const CreateMaintenanceEventWithNotification = async (
         "created",
         "Maintenance Created",
         siteUrl,
+        dateFormat,
       );
       await subscriberQueue.push(update);
     }
@@ -668,6 +670,7 @@ export const UpdateMaintenanceEventStatuses = async (): Promise<void> => {
   const siteData = await GetAllSiteData();
   const siteVars = siteDataToVariables(siteData);
   const siteUrl = siteVars.site_url;
+  const { date_format: dateFormat } = siteVars;
   //get global maintenance notification settings
   const notificationSettings =
     siteData.globalMaintenanceNotificationSettings || seedSiteData.globalMaintenanceNotificationSettings;
@@ -693,6 +696,7 @@ export const UpdateMaintenanceEventStatuses = async (): Promise<void> => {
           "starting_soon",
           "Maintenance Starting Soon",
           siteUrl,
+          dateFormat,
         );
         await subscriberQueue.push(update);
       }
@@ -714,6 +718,7 @@ export const UpdateMaintenanceEventStatuses = async (): Promise<void> => {
           "ongoing",
           "Maintenance In Progress",
           siteUrl,
+          dateFormat,
         );
         await subscriberQueue.push(update);
       }
@@ -735,6 +740,7 @@ export const UpdateMaintenanceEventStatuses = async (): Promise<void> => {
           "ongoing",
           "Maintenance In Progress",
           siteUrl,
+          dateFormat,
         );
         await subscriberQueue.push(update);
       }
@@ -756,6 +762,7 @@ export const UpdateMaintenanceEventStatuses = async (): Promise<void> => {
           "completed",
           "Maintenance Completed",
           siteUrl,
+          dateFormat,
         );
         await subscriberQueue.push(update);
       }

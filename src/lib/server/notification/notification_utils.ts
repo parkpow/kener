@@ -5,6 +5,7 @@ import type { SiteDataTransformed } from "../controllers/siteDataController.js";
 import { format } from "date-fns";
 import mdToHTML from "../..//marked.js";
 import serverResolver from "../resolver.js";
+import seedSiteData from "../db/seedSiteData.js";
 
 export function alertToVariables(
   config: MonitorAlertConfigRecord,
@@ -38,6 +39,7 @@ export function alertToVariables(
 }
 
 export function siteDataToVariables(siteData: SiteDataTransformed): SiteDataForNotification {
+  const datePlusTime = siteData.dateAndTimeFormat?.datePlusTime || seedSiteData.dateAndTimeFormat.datePlusTime;
   return {
     site_url: siteData.siteURL + serverResolver("/"),
     site_name: siteData.siteName || "",
@@ -46,6 +48,7 @@ export function siteDataToVariables(siteData: SiteDataTransformed): SiteDataForN
     colors_down: siteData.colors.DOWN,
     colors_degraded: siteData.colors.DEGRADED,
     colors_maintenance: siteData.colors.MAINTENANCE,
+    date_format: datePlusTime + " 'UTC'",
   };
 }
 
@@ -53,8 +56,8 @@ function formatMaintenanceMarkdown(
   monitorNames: string,
   event: MaintenanceEventRecordDetailed,
   statusMessage: string,
+  dateFormat: string,
 ): string {
-  const dateFormat = "PPpp";
   let update = `Maintenance **${event.title}** ${statusMessage}\n\n`;
   if (!!event.description) {
     update = update + `${event.description}\n\n`;
@@ -75,8 +78,9 @@ export function maintenanceToVariables(
   updateIdSuffix: string,
   subjectPrefix: string,
   siteUrl: string = "",
+  dateFormat: string = seedSiteData.dateAndTimeFormat.datePlusTime + " 'UTC'",
 ): SubscriptionVariableMap {
-  const template = formatMaintenanceMarkdown(monitorNames, event, statusMessage);
+  const template = formatMaintenanceMarkdown(monitorNames, event, statusMessage, dateFormat);
   return {
     title: `${subjectPrefix}: ${event.title}`,
     event_type: "maintenances",
