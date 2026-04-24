@@ -127,7 +127,7 @@
 
   // Validation
   function validateNameEmailPattern(input: string): { isValid: boolean; name: string | null; email: string | null } {
-    const pattern = /^([\w\s]+)\s*<([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})>$/;
+    const pattern = /^([^<>]+)\s*<([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})>$/;
     const match = input.match(pattern);
     if (match) {
       return { isValid: true, name: match[1].trim(), email: match[2] };
