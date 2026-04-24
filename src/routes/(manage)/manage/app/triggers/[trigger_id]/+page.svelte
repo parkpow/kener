@@ -67,6 +67,7 @@
       headers: [],
       to: "",
       from: "",
+      bcc: "",
       webhook_body: data.webhook_template.webhook_body,
       discord_body: data.discord_template.discord_body,
       slack_body: data.slack_template.slack_body,
@@ -106,6 +107,7 @@
             headers: meta.headers || [],
             to: meta.to || "",
             from: meta.from || "",
+            bcc: meta.bcc || "",
             webhook_body: meta.webhook_body || data.webhook_template.webhook_body,
             discord_body: meta.discord_body || data.discord_template.discord_body,
             slack_body: meta.slack_body || data.slack_template.slack_body,
@@ -472,6 +474,14 @@
             <Input
               id="email-to"
               bind:value={trigger.trigger_meta.to}
+              placeholder="john@example.com, jane@example.com"
+            />
+          </div>
+          <div class="space-y-2">
+            <Label for="email-bcc">BCC (comma separated)</Label>
+            <Input
+              id="email-bcc"
+              bind:value={trigger.trigger_meta.bcc}
               placeholder="john@example.com, jane@example.com"
             />
           </div>

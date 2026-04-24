@@ -127,7 +127,10 @@ import {
   RequirePermission,
 } from "$lib/server/controllers/userController.js";
 import type { SiteDataForNotification } from "$lib/server/notification/types";
-import { alertToVariables, siteDataToVariables } from "$lib/server/notification/notification_utils";
+import {
+  alertToVariables,
+  siteDataToVariables,
+} from "$lib/server/notification/notification_utils";
 import type { TriggerMeta } from "$lib/server/types/db.js";
 import sendWebhook from "$lib/server/notification/webhook_notification.js";
 import sendEmail from "$lib/server/notification/email_notification.js";
@@ -160,7 +163,10 @@ export async function POST({ request, cookies }) {
     try {
       RequirePermission(userPermissions, requiredPermission);
     } catch {
-      return json({ error: "You do not have permission to perform this action" }, { status: 403 });
+      return json(
+        { error: "You do not have permission to perform this action" },
+        { status: 403 },
+      );
     }
   }
 
@@ -190,7 +196,10 @@ export async function POST({ request, cookies }) {
       // Non-self verification requires users.write permission
       if (toId !== userDB.id) {
         if (!userPermissions.has("users.write")) {
-          return json({ error: "You do not have permission to perform this action" }, { status: 403 });
+          return json(
+            { error: "You do not have permission to perform this action" },
+            { status: 403 },
+          );
         }
       }
       await SendVerificationEmail(toId, userDB.id);
@@ -238,14 +247,21 @@ export async function POST({ request, cookies }) {
     } else if (action == "getAllAlertsPaginated") {
       const page = parseInt(String(data.page)) || 1;
       const limit = parseInt(String(data.limit)) || 20;
-      const filter: { alert_status?: "TRIGGERED" | "RESOLVED"; config_id?: number } = {};
-      if (data.status && data.status !== "ALL") filter.alert_status = data.status as "TRIGGERED" | "RESOLVED";
+      const filter: { alert_status?: "TRIGGERED" | "RESOLVED"; config_id?: number } =
+        {};
+      if (data.status && data.status !== "ALL")
+        filter.alert_status = data.status as "TRIGGERED" | "RESOLVED";
       if (data.config_id) filter.config_id = parseInt(String(data.config_id));
-      resp = await GetMonitorAlertsV2Paginated(page, limit, Object.keys(filter).length > 0 ? filter : undefined);
+      resp = await GetMonitorAlertsV2Paginated(
+        page,
+        limit,
+        Object.keys(filter).length > 0 ? filter : undefined,
+      );
     } else if (action == "getMonitoringDataPaginated") {
       const page = parseInt(String(data.page)) || 1;
       const limit = parseInt(String(data.limit)) || 50;
-      const filter: { monitor_tag?: string; start_time?: number; end_time?: number } = {};
+      const filter: { monitor_tag?: string; start_time?: number; end_time?: number } =
+        {};
       if (data.monitor_tag && data.monitor_tag !== "ALL") {
         filter.monitor_tag = data.monitor_tag;
       }
@@ -255,7 +271,11 @@ export async function POST({ request, cookies }) {
       if (data.end_time) {
         filter.end_time = parseInt(String(data.end_time));
       }
-      resp = await GetMonitoringDataPaginated(page, limit, Object.keys(filter).length > 0 ? filter : undefined);
+      resp = await GetMonitoringDataPaginated(
+        page,
+        limit,
+        Object.keys(filter).length > 0 ? filter : undefined,
+      );
     } else if (action == "getAPIKeys") {
       resp = await GetAllAPIKeys();
     } else if (action == "createNewApiKey") {
@@ -276,23 +296,46 @@ export async function POST({ request, cookies }) {
         throw new Error("Incident not found");
       }
     } else if (action == "createIncident") {
-      resp = await CreateIncident({ ...data, notify_subscribers: !!data.notify_subscribers });
+      resp = await CreateIncident({
+        ...data,
+        notify_subscribers: !!data.notify_subscribers,
+      });
     } else if (action == "updateIncident") {
       resp = await UpdateIncident(data.id, data);
     } else if (action == "deleteIncident") {
       resp = await DeleteIncident(data.incident_id);
     } else if (action == "addMonitor") {
-      resp = await AddIncidentMonitor(data.incident_id, data.monitor_tag, data.monitor_impact);
+      resp = await AddIncidentMonitor(
+        data.incident_id,
+        data.monitor_tag,
+        data.monitor_impact,
+      );
     } else if (action == "removeMonitor") {
       resp = await RemoveIncidentMonitor(data.incident_id, data.monitor_tag);
     } else if (action == "getComments") {
       resp = await GetIncidentActiveComments(data.incident_id);
     } else if (action == "addComment") {
-      resp = await AddIncidentComment(data.incident_id, data.comment, data.state, data.commented_at, !!data.notify_subscribers);
+      resp = await AddIncidentComment(
+        data.incident_id,
+        data.comment,
+        data.state,
+        data.commented_at,
+        !!data.notify_subscribers,
+      );
     } else if (action == "deleteComment") {
-      resp = await UpdateCommentStatusByID(data.incident_id, data.comment_id, "INACTIVE");
+      resp = await UpdateCommentStatusByID(
+        data.incident_id,
+        data.comment_id,
+        "INACTIVE",
+      );
     } else if (action == "updateComment") {
-      resp = await UpdateCommentByID(data.incident_id, data.comment_id, data.comment, data.state, data.commented_at);
+      resp = await UpdateCommentByID(
+        data.incident_id,
+        data.comment_id,
+        data.comment,
+        data.state,
+        data.commented_at,
+      );
     } else if (action == "testTrigger") {
       const trigger = await GetTriggerByID(data.trigger_id);
       const siteData = await GetAllSiteData();
@@ -302,7 +345,11 @@ export async function POST({ request, cookies }) {
       //fetch the last monitor tag from monitoring data and use that for testing instead of "test-monitor"
       const lastMonitoringData = await GetMonitoringDataPaginated(1, 1);
       let testTag = "test-monitor";
-      if (lastMonitoringData && lastMonitoringData.data && lastMonitoringData.data.length > 0) {
+      if (
+        lastMonitoringData &&
+        lastMonitoringData.data &&
+        lastMonitoringData.data.length > 0
+      ) {
         testTag = lastMonitoringData.data[0].monitor_tag;
       }
       const triggerMetaParsed = JSON.parse(trigger.trigger_meta) as TriggerMeta;
@@ -331,7 +378,11 @@ export async function POST({ request, cookies }) {
       };
 
       const templateSiteVars = siteDataToVariables(siteData);
-      const templateAlertVars = alertToVariables(testAlert, testAlertData, templateSiteVars);
+      const templateAlertVars = alertToVariables(
+        testAlert,
+        testAlertData,
+        templateSiteVars,
+      );
       if (trigger.trigger_type === "webhook") {
         resp = await sendWebhook(
           triggerMetaParsed.webhook_body,
@@ -345,12 +396,21 @@ export async function POST({ request, cookies }) {
           .split(",")
           .map((addr) => addr.trim())
           .filter((addr) => addr.length > 0);
+        const bccAddresses = triggerMetaParsed.bcc
+          ? triggerMetaParsed.bcc
+              .trim()
+              .split(",")
+              .map((addr: string) => addr.trim())
+              .filter((addr: string) => addr.length > 0)
+          : [];
         resp = await sendEmail(
           triggerMetaParsed.email_body,
           triggerMetaParsed.email_subject,
           { ...templateAlertVars, ...templateSiteVars },
           toAddresses,
           triggerMetaParsed.from,
+          undefined,
+          bccAddresses.length > 0 ? bccAddresses : undefined,
         );
       } else if (trigger.trigger_type === "discord") {
         resp = await sendDiscord(
@@ -458,7 +518,11 @@ export async function POST({ request, cookies }) {
     } else if (action == "getMaintenanceMonitors") {
       resp = await GetMaintenanceMonitors(data.maintenance_id);
     } else if (action == "updateMaintenanceMonitorImpact") {
-      await UpdateMaintenanceMonitorImpact(data.maintenance_id, data.monitor_tag, data.monitor_impact);
+      await UpdateMaintenanceMonitorImpact(
+        data.maintenance_id,
+        data.monitor_tag,
+        data.monitor_impact,
+      );
       resp = { success: true };
     }
     // ============ Monitor Alert Config Actions ============
@@ -466,7 +530,10 @@ export async function POST({ request, cookies }) {
       resp = await CreateMonitorAlertConfig(data);
     } else if (action == "updateMonitorAlertConfig") {
       resp = await UpdateMonitorAlertConfig(data);
-    } else if (action == "getMonitorAlertConfig" || action == "getMonitorAlertConfigById") {
+    } else if (
+      action == "getMonitorAlertConfig" ||
+      action == "getMonitorAlertConfigById"
+    ) {
       resp = await GetMonitorAlertConfigById(data.id);
       if (!resp) {
         throw new Error("Monitor alert config not found");
@@ -481,12 +548,20 @@ export async function POST({ request, cookies }) {
     } else if (action == "getAlertConfigsPaginated") {
       const page = parseInt(String(data.page)) || 1;
       const limit = parseInt(String(data.limit)) || 10;
-      const filter: { monitor_tag?: string; is_active?: "YES" | "NO"; alert_for?: "STATUS" | "LATENCY" | "UPTIME" } =
-        {};
+      const filter: {
+        monitor_tag?: string;
+        is_active?: "YES" | "NO";
+        alert_for?: "STATUS" | "LATENCY" | "UPTIME";
+      } = {};
       if (data.monitor_tag) filter.monitor_tag = data.monitor_tag;
       if (data.is_active) filter.is_active = data.is_active as "YES" | "NO";
-      if (data.alert_for) filter.alert_for = data.alert_for as "STATUS" | "LATENCY" | "UPTIME";
-      resp = await GetMonitorAlertConfigsPaginated(page, limit, Object.keys(filter).length > 0 ? filter : undefined);
+      if (data.alert_for)
+        filter.alert_for = data.alert_for as "STATUS" | "LATENCY" | "UPTIME";
+      resp = await GetMonitorAlertConfigsPaginated(
+        page,
+        limit,
+        Object.keys(filter).length > 0 ? filter : undefined,
+      );
     } else if (action == "deleteMonitorAlertV2") {
       const deleteIncident = data.deleteIncident === true;
       // If deleteIncident is true, delete the incident first
@@ -568,7 +643,8 @@ export async function POST({ request, cookies }) {
         throw new Error("Template not found");
       }
     } else if (action == "updateGeneralEmailTemplate") {
-      const { templateId, template_subject, template_html_body, template_text_body } = data;
+      const { templateId, template_subject, template_html_body, template_text_body } =
+        data;
       if (!templateId) {
         throw new Error("Template ID is required");
       }
@@ -691,7 +767,9 @@ interface ImageUploadData {
   prefix?: string; // prefix for the ID (e.g., "logo_", "favicon_")
 }
 
-async function uploadImage(data: ImageUploadData): Promise<{ id: string; url: string }> {
+async function uploadImage(
+  data: ImageUploadData,
+): Promise<{ id: string; url: string }> {
   const {
     base64,
     mimeType,
@@ -706,9 +784,18 @@ async function uploadImage(data: ImageUploadData): Promise<{ id: string; url: st
     throw new Error("Image data is required");
   }
 
-  const allowedMimeTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/heic", "image/heif"];
+  const allowedMimeTypes = [
+    "image/png",
+    "image/jpeg",
+    "image/jpg",
+    "image/webp",
+    "image/heic",
+    "image/heif",
+  ];
   if (!allowedMimeTypes.includes(mimeType)) {
-    throw new Error(`Invalid image type. Allowed types: ${allowedMimeTypes.join(", ")}`);
+    throw new Error(
+      `Invalid image type. Allowed types: ${allowedMimeTypes.join(", ")}`,
+    );
   }
 
   // Decode base64 to buffer
@@ -723,7 +810,8 @@ async function uploadImage(data: ImageUploadData): Promise<{ id: string; url: st
 
   const normalizedRequestedMime = mimeType === "image/jpg" ? "image/jpeg" : mimeType;
   const maybeTextHeader = imageBuffer.subarray(0, 4096).toString("utf8");
-  const looksLikeSvg = /<svg[\s>]/i.test(maybeTextHeader) || /<\?xml/i.test(maybeTextHeader);
+  const looksLikeSvg =
+    /<svg[\s>]/i.test(maybeTextHeader) || /<\?xml/i.test(maybeTextHeader);
 
   if (normalizedRequestedMime === "image/svg+xml" || looksLikeSvg) {
     throw new Error("SVG uploads are not allowed");
@@ -770,9 +858,16 @@ async function uploadImage(data: ImageUploadData): Promise<{ id: string; url: st
   }
 
   // HEIC/HEIF files often have .jpg extension (e.g. iPhone photos); allow the mismatch
-  const isHeicDetected = detectedMimeType === "image/heic" || detectedMimeType === "image/heif";
-  const isHeicRequested = normalizedRequestedMime === "image/heic" || normalizedRequestedMime === "image/heif";
-  if (normalizedRequestedMime !== detectedMimeType && !isHeicDetected && !isHeicRequested) {
+  const isHeicDetected =
+    detectedMimeType === "image/heic" || detectedMimeType === "image/heif";
+  const isHeicRequested =
+    normalizedRequestedMime === "image/heic" ||
+    normalizedRequestedMime === "image/heif";
+  if (
+    normalizedRequestedMime !== detectedMimeType &&
+    !isHeicDetected &&
+    !isHeicRequested
+  ) {
     throw new Error("Image MIME type does not match file content");
   }
 

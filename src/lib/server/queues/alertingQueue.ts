@@ -14,7 +14,12 @@ import {
   IsUptimeLessThanXPercent,
   IsUptimeGreaterThanXPercent,
 } from "../controllers/controller.js";
-import type { MonitorSettings, MonitorAlertConfigRecord, MonitorAlertV2Record, TriggerMeta } from "../types/db.js";
+import type {
+  MonitorSettings,
+  MonitorAlertConfigRecord,
+  MonitorAlertV2Record,
+  TriggerMeta,
+} from "../types/db.js";
 import { GetMonitorsParsed } from "../controllers/controller.js";
 import {
   AddIncidentToAlert,
@@ -30,7 +35,10 @@ import { GetMonitorAlertsV2 } from "../controllers/monitorAlertConfigController.
 import db from "../db/db.js";
 import { getUnixTime, differenceInSeconds } from "date-fns";
 import GC from "../../global-constants.js";
-import { alertToVariables, siteDataToVariables } from "../notification/notification_utils.js";
+import {
+  alertToVariables,
+  siteDataToVariables,
+} from "../notification/notification_utils.js";
 import sendEmail from "../notification/email_notification.js";
 import sendWebhook from "$lib/server/notification/webhook_notification.js";
 import sendSlack from "$lib/server/notification/slack_notification.js";
@@ -71,7 +79,13 @@ async function createNewIncident(
     incident_source: "ALERT",
   };
 
-  let update = IncidentCreateAlertMarkdown(alert, config, monitorName, monitorTag, GC.TRIGGERED);
+  let update = IncidentCreateAlertMarkdown(
+    alert,
+    config,
+    monitorName,
+    monitorTag,
+    GC.TRIGGERED,
+  );
   let incidentCreated = await CreateNewIncidentWithCommentAndMonitor(
     incidentInput,
     update,
@@ -108,7 +122,13 @@ async function closeIncident(
   }
 
   let incident_id = alert.incident_id;
-  const comment = ClosureCommentAlertMarkdown(alert, config, monitorName, monitorTag, GC.RESOLVED);
+  const comment = ClosureCommentAlertMarkdown(
+    alert,
+    config,
+    monitorName,
+    monitorTag,
+    GC.RESOLVED,
+  );
   const updatedAt = getUnixTime(new Date(alert.updated_at));
   await NotifySubscribersForIncident(incident_id, incident.title, GC.RESOLVED, comment);
   await AddIncidentComment(incident_id, comment, GC.RESOLVED, updatedAt);
@@ -120,8 +140,15 @@ async function sendAlertNotifications(
   templateSiteVars: SiteDataForNotification,
   monitorTag?: string,
 ): Promise<void> {
-  const templateAlertVars = alertToVariables(monitor_alerts_configured, activeAlert, templateSiteVars, monitorTag);
-  const triggers = await GetTriggersByMonitorAlertConfigId(monitor_alerts_configured.id);
+  const templateAlertVars = alertToVariables(
+    monitor_alerts_configured,
+    activeAlert,
+    templateSiteVars,
+    monitorTag,
+  );
+  const triggers = await GetTriggersByMonitorAlertConfigId(
+    monitor_alerts_configured.id,
+  );
 
   for (let i = 0; i < triggers.length; i++) {
     const trigger = triggers[i];
@@ -138,12 +165,21 @@ async function sendAlertNotifications(
       if (toAddresses.length === 0) {
         continue;
       }
+      const bccAddresses = triggerMetaParsed.bcc
+        ? triggerMetaParsed.bcc
+            .trim()
+            .split(",")
+            .map((addr) => addr.trim())
+            .filter((addr) => addr.length > 0)
+        : [];
       await sendEmail(
         triggerMetaParsed.email_body,
         triggerMetaParsed.email_subject,
         { ...templateAlertVars, ...templateSiteVars },
         toAddresses,
         triggerMetaParsed.from,
+        undefined,
+        bccAddresses.length > 0 ? bccAddresses : undefined,
       );
     } else if (trigger.trigger_type === "webhook") {
       await sendWebhook(
@@ -181,8 +217,14 @@ const addWorker = () => {
   if (worker) return worker;
 
   worker = q.createWorker(getQueue(), async (job: Job): Promise<void> => {
-    const { monitor_name, monitor_tag, numerator, denominator, status, monitor_alerts_configured } =
-      job.data as JobData;
+    const {
+      monitor_name,
+      monitor_tag,
+      numerator,
+      denominator,
+      status,
+      monitor_alerts_configured,
+    } = job.data as JobData;
     const siteData = await GetAllSiteData();
     const templateSiteVars = siteDataToVariables(siteData);
     try {
@@ -196,9 +238,17 @@ const addWorker = () => {
       let isUp = false;
       if (typeOfConfig === GC.STATUS) {
         //alertValue can be DOWN or DEGRADED
-        isAffected = await db.consecutivelyStatusFor(monitor_tag, alertValue, failureThreshold);
+        isAffected = await db.consecutivelyStatusFor(
+          monitor_tag,
+          alertValue,
+          failureThreshold,
+        );
       } else if (typeOfConfig === GC.LATENCY) {
-        isAffected = await db.consecutivelyLatencyGreaterThan(monitor_tag, parseFloat(alertValue), failureThreshold);
+        isAffected = await db.consecutivelyLatencyGreaterThan(
+          monitor_tag,
+          parseFloat(alertValue),
+          failureThreshold,
+        );
       } else if (typeOfConfig === GC.UPTIME) {
         isAffected = await IsUptimeLessThanXPercent(
           monitor_tag,
@@ -225,7 +275,10 @@ const addWorker = () => {
       if (isAffected) {
         // Trigger alert if not already active for this monitor
         if (!activeAlert) {
-          activeAlert = await CreateMonitorAlertV2(monitor_alerts_configured.id, monitor_tag);
+          activeAlert = await CreateMonitorAlertV2(
+            monitor_alerts_configured.id,
+            monitor_tag,
+          );
           if (monitor_alerts_configured.create_incident === GC.YES) {
             let newIncidentNumber = await createNewIncident(
               activeAlert,
@@ -235,19 +288,35 @@ const addWorker = () => {
             );
             //update alert with incident number
             if (newIncidentNumber && newIncidentNumber.incident_id > 0) {
-              activeAlert = await AddIncidentToAlert(activeAlert.id, newIncidentNumber.incident_id);
+              activeAlert = await AddIncidentToAlert(
+                activeAlert.id,
+                newIncidentNumber.incident_id,
+              );
             }
           }
           // Send triggered alert notifications
-          await sendAlertNotifications(activeAlert, monitor_alerts_configured, templateSiteVars, monitor_tag);
+          await sendAlertNotifications(
+            activeAlert,
+            monitor_alerts_configured,
+            templateSiteVars,
+            monitor_tag,
+          );
         }
       } else {
         // Resolve any existing alert
         if (activeAlert) {
           if (typeOfConfig === GC.STATUS) {
-            isUp = await db.consecutivelyStatusFor(monitor_tag, GC.UP, successThreshold);
+            isUp = await db.consecutivelyStatusFor(
+              monitor_tag,
+              GC.UP,
+              successThreshold,
+            );
           } else if (typeOfConfig === GC.LATENCY) {
-            isUp = await db.consecutivelyLatencyLessThan(monitor_tag, parseFloat(alertValue), successThreshold);
+            isUp = await db.consecutivelyLatencyLessThan(
+              monitor_tag,
+              parseFloat(alertValue),
+              successThreshold,
+            );
           } else if (typeOfConfig === GC.UPTIME) {
             isUp = await IsUptimeGreaterThanXPercent(
               monitor_tag,
@@ -279,7 +348,12 @@ const addWorker = () => {
           }
 
           // Send resolution notifications
-          await sendAlertNotifications(activeAlert, monitor_alerts_configured, templateSiteVars, monitor_tag);
+          await sendAlertNotifications(
+            activeAlert,
+            monitor_alerts_configured,
+            templateSiteVars,
+            monitor_tag,
+          );
         }
       }
     } catch (error) {
@@ -297,7 +371,12 @@ const addWorker = () => {
   return worker;
 };
 
-export const push = async (monitor_tag: string, ts: number, status: string, options?: JobsOptions) => {
+export const push = async (
+  monitor_tag: string,
+  ts: number,
+  status: string,
+  options?: JobsOptions,
+) => {
   if (!options) {
     options = {};
   }
@@ -350,8 +429,12 @@ export const push = async (monitor_tag: string, ts: number, status: string, opti
         monitor_image: monitor.image,
         monitor_id: monitor.id,
         monitor_description: monitor.description,
-        numerator: monitor.monitor_settings_json?.uptime_formula_numerator || GC.defaultNumeratorStr,
-        denominator: monitor.monitor_settings_json?.uptime_formula_denominator || GC.defaultDenominatorStr,
+        numerator:
+          monitor.monitor_settings_json?.uptime_formula_numerator ||
+          GC.defaultNumeratorStr,
+        denominator:
+          monitor.monitor_settings_json?.uptime_formula_denominator ||
+          GC.defaultDenominatorStr,
         ts,
         status,
       },

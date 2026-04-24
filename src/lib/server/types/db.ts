@@ -187,6 +187,7 @@ export interface EmailTemplateJson {
   email_body: string; // HTML string
   to: string;
   from: string;
+  bcc?: string;
 }
 
 export interface WebhookTemplateJson {
@@ -209,7 +210,11 @@ export interface TriggerHeader {
   key: string;
   value: string;
 }
-export interface TriggerMeta extends EmailTemplateJson, WebhookTemplateJson, SlackTemplateJson, DiscordTemplateJson {}
+export interface TriggerMeta
+  extends EmailTemplateJson,
+    WebhookTemplateJson,
+    SlackTemplateJson,
+    DiscordTemplateJson {}
 
 export interface TriggerRecordInsert {
   name: string;
@@ -983,7 +988,11 @@ export interface TriggerHeader {
   key: string;
   value: string;
 }
-export interface TriggerMeta extends EmailTemplateJson, WebhookTemplateJson, SlackTemplateJson, DiscordTemplateJson {
+export interface TriggerMeta
+  extends EmailTemplateJson,
+    WebhookTemplateJson,
+    SlackTemplateJson,
+    DiscordTemplateJson {
   url: string;
   headers: TriggerHeader[];
   to: string;

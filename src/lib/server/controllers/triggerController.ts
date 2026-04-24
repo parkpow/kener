@@ -7,14 +7,29 @@ interface TriggerInput extends TriggerRecordInsert {
   trigger_meta: string;
 }
 
-export const CreateUpdateTrigger = async (alert: TriggerInput): Promise<number | number[]> => {
+export const CreateUpdateTrigger = async (
+  alert: TriggerInput,
+): Promise<number | number[]> => {
   let alertData = { ...alert };
   let alertMetaJSON = JSON.parse(alertData.trigger_meta);
   if (alertData.trigger_type === "email") {
-    let emailsArray: string[] = alertMetaJSON.to.split(",").map((email: string) => email.trim());
+    let emailsArray: string[] = alertMetaJSON.to
+      .split(",")
+      .map((email: string) => email.trim());
     for (let i = 0; i < emailsArray.length; i++) {
       if (!ValidateEmail(emailsArray[i])) {
         throw new Error(`Invalid email: ${emailsArray[i]}`);
+      }
+    }
+    if (alertMetaJSON.bcc) {
+      let bccArray: string[] = alertMetaJSON.bcc
+        .split(",")
+        .map((email: string) => email.trim())
+        .filter((e: string) => e.length > 0);
+      for (let i = 0; i < bccArray.length; i++) {
+        if (!ValidateEmail(bccArray[i])) {
+          throw new Error(`Invalid BCC email: ${bccArray[i]}`);
+        }
       }
     }
   }
@@ -30,7 +45,9 @@ export const GetAllTriggers = async (data: TriggerFilter): Promise<TriggerRecord
   return await db.getTriggers(data);
 };
 
-export const GetTriggerByID = async (id: number): Promise<TriggerRecord | undefined> => {
+export const GetTriggerByID = async (
+  id: number,
+): Promise<TriggerRecord | undefined> => {
   return await db.getTriggerByID(id);
 };
 
@@ -40,7 +57,11 @@ export const UpdateTriggerData = async (data: {
   degraded_trigger?: string | null;
 }): Promise<number> => {
   return await db.updateMonitorTrigger(
-    data as { id: number; down_trigger: string | null; degraded_trigger: string | null },
+    data as {
+      id: number;
+      down_trigger: string | null;
+      degraded_trigger: string | null;
+    },
   );
 };
 

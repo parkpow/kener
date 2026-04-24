@@ -14,10 +14,13 @@ export default async function send(
   to: string[],
   from?: string,
   emailTextBody?: string,
+  bcc?: string[],
 ) {
   // Implementation for sending email notification using the provided triggerRecord, variables, and template
 
-  let envSecretsTemplate = GetRequiredSecrets(emailBody + emailSubject + (emailTextBody || ""));
+  let envSecretsTemplate = GetRequiredSecrets(
+    emailBody + emailSubject + (emailTextBody || ""),
+  );
 
   for (let i = 0; i < envSecretsTemplate.length; i++) {
     const secret = envSecretsTemplate[i];
@@ -25,19 +28,27 @@ export default async function send(
       emailBody = ReplaceAllOccurrences(emailBody, secret.find, secret.replace);
       emailSubject = ReplaceAllOccurrences(emailSubject, secret.find, secret.replace);
       if (emailTextBody !== undefined) {
-        emailTextBody = ReplaceAllOccurrences(emailTextBody, secret.find, secret.replace);
+        emailTextBody = ReplaceAllOccurrences(
+          emailTextBody,
+          secret.find,
+          secret.replace,
+        );
       }
     }
   }
 
   const subject = Mustache.render(emailSubject, variables);
   const htmlBody = Mustache.render(emailBody, variables);
-  const textBody = emailTextBody ? Mustache.render(emailTextBody, variables) : striptags(htmlBody);
+  const textBody = emailTextBody
+    ? Mustache.render(emailTextBody, variables)
+    : striptags(htmlBody);
 
   try {
     let isEmailSetupDone = IsEmailSetup();
     if (!isEmailSetupDone) {
-      throw new Error("Email not configured properly. Please check SMTP or Resend configuration.");
+      throw new Error(
+        "Email not configured properly. Please check SMTP or Resend configuration.",
+      );
     }
     let isResend = IsResendSetup();
     let mySMTPData = GetSMTPFromENV();
@@ -50,6 +61,7 @@ export default async function send(
         subject: subject,
         html: htmlBody,
         text: textBody,
+        bcc: bcc && bcc.length > 0 ? bcc : undefined,
       };
       let resp = await resend.emails.send(emailBody);
       if (!!resp.error) {
@@ -62,13 +74,16 @@ export default async function send(
       const mailOptions = {
         from: from || mySMTPData.smtp_sender, // sender address
         to: to, // recipient address(es)
+        bcc: bcc && bcc.length > 0 ? bcc.join(",") : undefined,
         subject: subject, // email subject
         text: textBody, // plain text body
         html: htmlBody, // HTML body (if any)
       };
       return await transport.sendMail(mailOptions);
     } else {
-      throw new Error("No valid email configuration found. Please check your SMTP or Resend settings.");
+      throw new Error(
+        "No valid email configuration found. Please check your SMTP or Resend settings.",
+      );
     }
   } catch (error) {
     console.error("Error sending email", error);
