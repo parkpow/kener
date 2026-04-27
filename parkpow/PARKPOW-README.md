@@ -22,11 +22,13 @@
 }
 ```
 
-## Webhook Trigger — Pushbullet
+---
+
+## Useful Webhook Triggers
+
+### Pushbullet
 
 One trigger per recipient. Only the `email` field changes between triggers.
-
-### Trigger config
 
 | Field  | Value                                    |
 | ------ | ---------------------------------------- |
@@ -36,6 +38,33 @@ One trigger per recipient. Only the `email` field changes between triggers.
 
 If the email matches a Pushbullet account → push notification.
 If not → Pushbullet falls back to a plain email.
+
+```handlebars
+{
+  "type": "note",
+  "email": "name@platerecognizer.com",
+  "title": "{{#is_triggered}}⚠️{{/is_triggered}}{{#is_resolved}}✅{{/is_resolved}} {{alert_name}}",
+  "body": "Monitor: {{alert_for}}\nStatus: {{alert_status}}\nSeverity: {{alert_severity}}\nValue: {{alert_value}}\n{{alert_message}}\n\n{{alert_cta_url}}"
+}
+```
+
+### Google Chat
+
+One trigger per space. Auth is embedded in the URL — no headers needed.
+
+| Field   | Value                                                                                 |
+| ------- | ------------------------------------------------------------------------------------- |
+| Type    | `webhook`                                                                             |
+| URL     | `https://chat.googleapis.com/v1/spaces/SPACE_ID/messages?key=...&token=$GCHAT_TOKEN` |
+| Headers | none                                                                                  |
+
+Get the URL from the space → **Apps & Integrations → Webhooks**.
+
+```handlebars
+{
+  "text": "{{#is_triggered}}🚨 *{{alert_name}}*{{/is_triggered}}{{#is_resolved}}✅ *{{alert_name}} Resolved*{{/is_resolved}}\n\nMonitor: {{alert_for}}\nStatus: {{alert_status}}\nSeverity: {{alert_severity}}\nValue: {{alert_value}}\n{{alert_message}}\n\n{{alert_cta_text}}: {{alert_cta_url}}"
+}
+```
 
 ### Available template variables
 
@@ -66,29 +95,4 @@ If not → Pushbullet falls back to a plain email.
   "colors_degraded": "{{colors_degraded}}",
   "colors_maintenance": "{{colors_maintenance}}"
 }
-```
-
-### Example Trigger
-
-```handlebars
-{
-  "type": "note",
-  "email": "name@platerecognizer.com", <!-- Push Bullet account email -->
-  "title": "{{#is_triggered}}⚠️{{/is_triggered}}{{#is_resolved}}✅{{/is_resolved}} {{alert_name}}",
-  "body": "Monitor: {{alert_for}}\nStatus: {{alert_status}}\nSeverity: {{alert_severity}}\nValue: {{alert_value}}\n{{alert_message}}\n\n{{alert_cta_url}}"
-}
-```
-
-### Output
-
-```
-⚠️ Alert pave-external for STATUS DOWN TRIGGERED at 2026-04-22T12:33:36.372Z
-
-Monitor: STATUS
-Status: TRIGGERED
-Severity: WARNING
-Value: DOWN
-This is a test alert
-
-https://status.parkpow.com/monitors/pave-external
 ```
