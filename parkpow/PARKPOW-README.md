@@ -1,5 +1,22 @@
 # PARKPOW - KENER
 
+## Deployment
+
+The production server (`kener`) has ~1 GB RAM — not enough to run the Vite build. **Always build locally and transfer the image.**
+
+```bash
+# 1. Build locally
+docker build -t kener-parkpow .
+
+# 2. Transfer image to server
+docker save kener-parkpow | ssh kener 'docker load'
+
+# 3. Deploy
+ssh kener 'cd /home/pef/kener && git pull && docker compose up -d'
+```
+
+---
+
 ## Parkpow Health Check
 
 ### Expected Response
