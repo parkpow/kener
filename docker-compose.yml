@@ -2,10 +2,8 @@
 # Kener v4 — Production Docker Compose
 #
 # Usage:
+#   docker compose build --no-cache
 #   docker compose up -d
-#
-# Defaults to the published image. To use a local build instead:
-#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 # =============================================================================
 
 services:
@@ -28,7 +26,9 @@ services:
   # Kener — Status Page Application
   # ---------------------------------------------------------------------------
   kener:
-    image: ghcr.io/parkpow/kener:parkpow
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: kener
     env_file:
       - .env
