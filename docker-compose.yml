@@ -26,9 +26,7 @@ services:
   # Kener — Status Page Application
   # ---------------------------------------------------------------------------
   kener:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: kener-parkpow
     container_name: kener
     env_file:
       - .env
