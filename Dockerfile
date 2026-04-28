@@ -79,6 +79,8 @@ RUN if [ "$WITH_DOCS" != "true" ]; then \
 
 # 6. Build: SvelteKit (vite) + server bundle (esbuild)
 #    Use build-with-docs when docs are enabled
+#    Set heap limit above default so Node can use host swap on low-RAM builds
+ENV NODE_OPTIONS=--max-old-space-size=2048
 RUN if [ "$WITH_DOCS" = "true" ]; then \
       npm run build-with-docs; \
     else \
