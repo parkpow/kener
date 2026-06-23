@@ -1,11 +1,12 @@
 import { json, type RequestHandler } from "@sveltejs/kit";
 import db from "$lib/server/db/db";
-import { GetMonitorsParsed } from "$lib/server/controllers/monitorsController";
+import { GetMonitorsParsed, DeleteMonitorCompletelyUsingTag } from "$lib/server/controllers/monitorsController";
 import type {
   GetMonitorResponse,
   MonitorResponse,
   UpdateMonitorRequest,
   UpdateMonitorResponse,
+  DeleteMonitorResponse,
   BadRequestResponse,
 } from "$lib/types/api";
 
@@ -79,6 +80,22 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 
   updateData.is_hidden = body.is_hidden !== undefined ? body.is_hidden : existingMonitor.is_hidden;
 
+  if (body.confirmation_threshold === null) {
+    // Explicit null resets the grace period to the default (1 = off); undefined keeps the existing value.
+    updateData.confirmation_threshold = 1;
+  } else if (body.confirmation_threshold !== undefined) {
+    const ct = Number(body.confirmation_threshold);
+    if (!Number.isInteger(ct) || ct < 1 || ct > 60) {
+      const errorResponse: BadRequestResponse = {
+        error: { code: "BAD_REQUEST", message: "confirmation_threshold must be an integer between 1 and 60" },
+      };
+      return json(errorResponse, { status: 400 });
+    }
+    updateData.confirmation_threshold = ct;
+  } else {
+    updateData.confirmation_threshold = existingMonitor.confirmation_threshold ?? 1;
+  }
+
   // Handle JSON fields - merge with existing data instead of replacing
   if (body.type_data !== undefined) {
     if (body.type_data === null) {
@@ -139,6 +156,23 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 
   const response: UpdateMonitorResponse = {
     monitor: updatedMonitor,
+  };
+
+  return json(response);
+};
+
+export const DELETE: RequestHandler = async ({ locals }) => {
+  // Monitor is validated by middleware and available in locals
+  const monitor = locals.monitor!;
+
+  // Removes the monitor and everything keyed to its tag: monitoring data,
+  // incident/maintenance/page links, alerts, alert configs, group
+  // memberships (with weight rebalancing), and caches. The scheduler drops
+  // the orphaned BullMQ job on its next reconcile.
+  await DeleteMonitorCompletelyUsingTag(monitor.tag);
+
+  const response: DeleteMonitorResponse = {
+    message: `Monitor '${monitor.tag}' deleted successfully`,
   };
 
   return json(response);
