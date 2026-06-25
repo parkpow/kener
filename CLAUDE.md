@@ -9,14 +9,17 @@ Kener is an open-source status page application built with **SvelteKit 2.x (Svel
 ## Development Commands
 
 ```bash
-npm run dev          # Start dev server (SvelteKit + cron scheduler in parallel)
-npm run build        # Production build (SvelteKit then esbuild server bundle)
-npm run start        # Run production build (node build/main.js)
-npm run check        # Svelte + TypeScript type checking
-npm run prettify     # Format all files with Prettier
-npm run migrate      # Run database migrations via Knex
-npm run seed         # Run database seeds (migrations run automatically first)
+npm run dev              # Start dev server (auto-runs migrations + seeds first via predev)
+npm run build            # Production build (SvelteKit then esbuild server bundle)
+npm run build-with-docs  # Same as build, but includes the docs site
+npm run start            # Run production build (node build/main.js)
+npm run check            # Svelte + TypeScript type checking (no automated test suite)
+npm run prettify         # Format all files with Prettier
+npm run migrate          # Run database migrations via Knex
+npm run seed             # Run database seeds (migrations run automatically first)
 ```
+
+`biome.json` is present for IDE linting integration but has no npm script — use `npm run prettify` for formatting.
 
 ## Architecture
 
@@ -54,6 +57,14 @@ Each monitor type has a dedicated implementation in `src/lib/server/services/`:
 - Types: API, Ping, TCP, DNS, SSL, SQL, Heartbeat, GameDig, Group, gRPC, None
 - Scheduled via `src/lib/server/schedulers/` using `croner`
 - Job queues managed with **BullMQ** + **Redis** (`src/lib/server/queues/`)
+
+### Cache Layer
+
+`src/lib/server/cache/` — in-memory cache above the database for read-heavy data.
+
+### Notification Channels
+
+`src/lib/server/notification/` implements Discord, Email (Resend), SMTP, Slack, and Webhook channels.
 
 ### Build System
 
@@ -104,6 +115,14 @@ APIs use Bearer token auth: `import { VerifyAPIKey } from "$lib/server/controlle
 - `src/lib/types/` - Shared types (client + server)
 - `src/lib/server/types/` - Server-only types
 - `src/lib/client/types/` - Client-only types
+
+### Database Cross-Compatibility
+
+All migrations and queries **must work across SQLite, PostgreSQL, and MySQL**. Use Knex schema builder and query builder abstractions — avoid raw SQL unless wrapped in dialect-safe helpers. In migrations:
+
+- Use `knex.schema.hasColumn` / `knex.schema.hasTable` guards for idempotency.
+- Use Knex column types (`.string()`, `.integer()`, `.text()`) — not raw `ALTER TABLE`.
+- Verify `defaultTo()` and `notNullable()` constraints work on all three engines.
 
 ### i18n
 
