@@ -29,7 +29,6 @@ import {
   UpdateMonitorAlertV2Status,
 } from "../controllers/monitorAlertConfigController.js";
 import type { IncidentInput } from "../controllers/incidentController.js";
-import { NotifySubscribersForIncident } from "../controllers/incidentController.js";
 import { InsertNewAlert } from "../controllers/controller.js";
 import { GetMonitorAlertsV2 } from "../controllers/monitorAlertConfigController.js";
 import db from "../db/db.js";
@@ -79,13 +78,9 @@ async function createNewIncident(
     incident_source: "ALERT",
   };
 
-  let update = IncidentCreateAlertMarkdown(
-    alert,
-    config,
-    monitorName,
-    monitorTag,
-    GC.TRIGGERED,
-  );
+  // Subscriber notification comes from AddIncidentComment (via
+  // CreateNewIncidentWithCommentAndMonitor) — do not push here too.
+  let update = IncidentCreateAlertMarkdown(alert, config, monitorName, monitorTag, GC.TRIGGERED);
   let incidentCreated = await CreateNewIncidentWithCommentAndMonitor(
     incidentInput,
     update,
@@ -93,12 +88,6 @@ async function createNewIncident(
     config.alert_value,
   );
 
-  await NotifySubscribersForIncident(
-    incidentCreated.incident_id,
-    incidentInput.title,
-    GC.TRIGGERED,
-    update,
-  );
   return incidentCreated;
 }
 
@@ -130,7 +119,7 @@ async function closeIncident(
     GC.RESOLVED,
   );
   const updatedAt = getUnixTime(new Date(alert.updated_at));
-  await NotifySubscribersForIncident(incident_id, incident.title, GC.RESOLVED, comment);
+  // Subscriber notification comes from AddIncidentComment — do not push here too.
   await AddIncidentComment(incident_id, comment, GC.RESOLVED, updatedAt);
 }
 
@@ -339,12 +328,7 @@ const addWorker = () => {
 
           // If alert has an incident, add closure comment
           if (activeAlert.incident_id) {
-            await closeIncident(
-              activeAlert,
-              monitor_alerts_configured,
-              monitor_name,
-              monitor_tag,
-            );
+            await closeIncident(activeAlert, monitor_alerts_configured, monitor_name, monitor_tag);
           }
 
           // Send resolution notifications
