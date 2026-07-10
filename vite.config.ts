@@ -39,7 +39,23 @@ export default defineConfig(({ mode }) => {
         "@uiw/codemirror-theme-github",
       ],
     },
-    plugins: [tailwindcss(), sveltekit(), version(), devtoolsJson()],
+    plugins: [
+    tailwindcss(),
+    // svelte-codemirror-editor's virtual CSS module contains Svelte module script
+    // syntax that @tailwindcss/vite cannot parse. Return empty CSS early so the
+    // Tailwind transform never sees it.
+    {
+      name: "codemirror-svelte-css-fix",
+      transform(_code: string, id: string) {
+        if (id.includes("svelte-codemirror-editor") && id.includes("?svelte&type=style")) {
+          return { code: "" };
+        }
+      },
+    },
+    sveltekit(),
+    version(),
+    devtoolsJson(),
+  ],
     server: {
       allowedHosts: allowedHost ? [allowedHost] : undefined,
       port,
