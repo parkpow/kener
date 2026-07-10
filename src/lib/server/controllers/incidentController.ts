@@ -304,18 +304,26 @@ export const NotifySubscribersForIncident = async (
   title: string,
   state: string,
   update_text: string,
+  dedup_id?: string,
 ): Promise<void> => {
-  const siteData = await GetAllSiteData();
-  const siteUrl = (siteData.siteURL || "") + "/";
-  await subscriberQueue.push({
-    title,
-    cta_url: siteUrl + "incidents/" + incident_id,
-    cta_text: "View Incident",
-    update_text: mdToHTML(update_text),
-    update_subject: `[#${incident_id}:${state}] ${title}`,
-    update_id: String(incident_id),
-    event_type: "incidents",
-  });
+  try {
+    const siteData = await GetAllSiteData();
+    const siteUrl = siteDataToVariables(siteData).site_url;
+    await subscriberQueue.push(
+      {
+        title,
+        cta_url: `${siteUrl}incidents/${incident_id}`,
+        cta_text: "View Incident",
+        update_text: mdToHTML(update_text),
+        update_subject: `[#${incident_id}:${state}] ${title}`,
+        update_id: String(incident_id),
+        event_type: "incidents",
+      },
+      dedup_id ? { deduplication: { id: dedup_id } } : undefined,
+    );
+  } catch (err) {
+    console.error(`Error sending subscriber notification for incident ${incident_id}:`, err);
+  }
 };
 
 export const CreateIncident = async (data: IncidentInput): Promise<{ incident_id: number }> => {
@@ -487,7 +495,7 @@ export const AddIncidentComment = async (
   comment: string,
   state: string,
   commented_at: number,
-  notify_subscribers: boolean = false,
+  notify_subscribers: boolean = true,
 ): Promise<IncidentCommentRecord> => {
   let incidentExists = await db.getIncidentById(incident_id);
   if (!incidentExists) {
@@ -513,7 +521,13 @@ export const AddIncidentComment = async (
       }
     }
     await UpdateIncident(incident_id, incidentUpdate);
-    await notifySubscribersOfComment(incidentExists, c);
+    if (notify_subscribers) {
+      await notifySubscribersOfComment(incidentExists, c);
+    }
+  }
+
+  if (notify_subscribers && incidentType !== GC.INCIDENT) {
+    await NotifySubscribersForIncident(incident_id, incidentExists.title, state, comment, `subscriber-incidents-comment-${c.id}`);
   }
 
   if (notify_subscribers) {
