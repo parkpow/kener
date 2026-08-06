@@ -13,11 +13,17 @@ npm run dev              # Start dev server (auto-runs migrations + seeds first 
 npm run build            # Production build (SvelteKit then esbuild server bundle)
 npm run build-with-docs  # Same as build, but includes the docs site
 npm run start            # Run production build (node build/main.js)
-npm run check            # Svelte + TypeScript type checking (no automated test suite)
+npm run check            # Svelte + TypeScript type checking
 npm run prettify         # Format all files with Prettier
 npm run migrate          # Run database migrations via Knex
 npm run seed             # Run database seeds (migrations run automatically first)
+npm test                 # Run all tests (server unit + browser component projects)
+npm run test:server      # Server-side unit tests only (Node)
+npm run test:client      # Component tests only (headless Chromium via Playwright)
+npm run test:watch       # Watch mode
 ```
+
+Component tests need a one-time `npx playwright install chromium`.
 
 `biome.json` is present for IDE linting integration but has no npm script — use `npm run prettify` for formatting.
 
