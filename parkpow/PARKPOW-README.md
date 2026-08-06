@@ -15,6 +15,57 @@ docker save kener-parkpow | ssh kener 'docker load'
 ssh kener 'cd /home/pef/kener && git pull && docker compose up -d'
 ```
 
+Step 3 needs the `git pull`. The server holds its own clone at `/home/pef/kener`, and `docker compose` reads `docker-compose.yml` from that directory. A new image alone does not apply a compose change.
+
+---
+
+## Database
+
+Kener uses SQLite through `better-sqlite3`. The file is `/app/database/kener.sqlite.db` in the Docker volume `kener_db`.
+
+**The driver is synchronous.** Every query blocks the Node event loop until it returns. Do not run heavy ad-hoc SQL against the live database. Stop the container first.
+
+| Setting        | Value   | Where it lives                       |
+| -------------- | ------- | ------------------------------------ |
+| `journal_mode` | `wal`   | the database file header, permanent  |
+| `busy_timeout` | 5000 ms | `knexfile.ts`, per connection        |
+| `cache_size`   | 64 MB   | `knexfile.ts`, per connection        |
+| Retention      | 30 days | `dataRetentionPolicy` in `site_data` |
+
+SQLite keeps `busy_timeout` and `cache_size` on the connection, not in the file. A `pool.afterCreate` hook in `knexfile.ts` applies them at each start. Set `SQLITE_BUSY_TIMEOUT_MS` and `SQLITE_CACHE_SIZE_KIB` to change them.
+
+Retention is a global setting in the admin interface, not a per-monitor one. A cleanup job runs each day at 00:00 UTC. Keep the value near 30 days. The server has only ~1 GB of RAM, and a database larger than the free memory makes every read go to disk.
+
+### Backup
+
+Stop the container first. A copy of a live SQLite file can hold a partial transaction.
+
+```bash
+ssh kener 'docker stop kener'
+ssh kener 'sudo cp -a /var/lib/docker/volumes/kener_db/_data/kener.sqlite.db /home/pef/kener-db-backup-$(date +%Y%m%d).sqlite.db'
+ssh kener 'docker start kener'
+```
+
+Check the copy with `md5sum` against the source. Then run `PRAGMA quick_check` on the backup.
+
+---
+
+## Logs
+
+Kener does not write timestamps in its log lines. Add `-t` and Docker prepends the time it captured each line.
+
+```bash
+docker logs kener -t --since 1h 2>&1 | tail -50
+```
+
+Use `2>&1`. Docker keeps stdout and stderr apart, and Node writes errors to stderr. Without `2>&1` no error line appears.
+
+A monitor edit removes and re-registers that monitor's scheduler. This behavior is correct. Hide those lines to find real errors.
+
+```bash
+docker logs kener -t --since 1h 2>&1 | grep -viE "ADDING NEW SCHEDULER|REMOVING INACTIVE SCHEDULER"
+```
+
 ---
 
 ## Parkpow Health Check
