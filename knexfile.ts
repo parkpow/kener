@@ -55,6 +55,29 @@ const webPool = buildPool(Math.max(1, intFromEnv("DATABASE_POOL_MAX", 10)));
 const workerPool = buildPool(Math.max(1, intFromEnv("DATABASE_WORKER_POOL_MAX", 5)));
 const acquireConnectionTimeout = intFromEnv("DATABASE_ACQUIRE_TIMEOUT_MS", 15000);
 
+// SQLite keeps these two pragmas on the connection. It does not keep them in
+// the database file. Only journal_mode stays in the file. Each restart
+// therefore returns these two pragmas to the driver defaults:
+// - busy_timeout 0: a statement that meets a write lock fails immediately with
+//   the error "database is locked". The statement does not wait for the lock.
+// - cache_size -2000: the page cache holds only 2 MB. Most reads go to disk.
+// better-sqlite3 is synchronous. A slow read blocks the Node event loop. The
+// block also stops BullMQ lock renewals and ioredis heartbeats. A minus sign
+// in cache_size means kibibytes, not pages.
+const sqliteBusyTimeoutMs = intFromEnv("SQLITE_BUSY_TIMEOUT_MS", 5000);
+const sqliteCacheSizeKib = intFromEnv("SQLITE_CACHE_SIZE_KIB", 64000);
+
+// better-sqlite3 gives the raw Database object to afterCreate. This code needs
+// only the pragma() method. The type therefore stays narrow and does not import
+// the driver types.
+interface SqliteConnection {
+  pragma: (source: string) => unknown;
+}
+
+interface SqlitePoolConfig {
+  afterCreate: (conn: SqliteConnection, done: (err: Error | null, conn: SqliteConnection) => void) => void;
+}
+
 interface KnexConfig {
   migrations: { directory: string };
   seeds: { directory: string };
@@ -62,7 +85,7 @@ interface KnexConfig {
   client?: string;
   connection?: string | { filename: string } | Record<string, unknown>;
   useNullAsDefault?: boolean;
-  pool?: PoolConfig;
+  pool?: PoolConfig | SqlitePoolConfig;
   acquireConnectionTimeout?: number;
 }
 
@@ -88,6 +111,18 @@ if (databaseType === "sqlite") {
     filename: databasePath,
   };
   knexOb.useNullAsDefault = true;
+  // SQLite uses one shared connection. This hook runs one time at startup.
+  knexOb.pool = {
+    afterCreate: (conn, done) => {
+      try {
+        conn.pragma(`busy_timeout = ${sqliteBusyTimeoutMs}`);
+        conn.pragma(`cache_size = -${sqliteCacheSizeKib}`);
+        done(null, conn);
+      } catch (err) {
+        done(err as Error, conn);
+      }
+    },
+  };
 } else if (databaseType === "postgresql") {
   knexOb.client = "pg";
   knexOb.connection = {

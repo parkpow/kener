@@ -28,6 +28,13 @@ services:
   kener:
     image: kener-parkpow
     container_name: kener
+    # Run tini as PID 1. Tini collects orphaned processes.
+    # The healthcheck starts a shell and a curl every 30 seconds. If the check
+    # passes its 5 second timeout, Docker stops the shell. The kernel then gives
+    # curl a new parent, and that parent is PID 1. Node collects only the
+    # children that Node started. Without tini these curl processes stay as
+    # zombies until the container restarts.
+    init: true
     env_file:
       - .env
     ports:
